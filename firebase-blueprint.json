@@ -1,0 +1,252 @@
+{
+  "entities": {
+    "Admin": {
+      "title": "Admin",
+      "description": "System administrator authorization record",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Admin email address"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["ROLE_ADMIN", "admin"],
+          "description": "Administrator role designation"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp ISO string of assignment"
+        }
+      },
+      "required": ["email", "role"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Merchant or operator public profile",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User email address"
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Business or user contact name"
+        },
+        "businessName": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Registered retail or wholesale firm name"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["ROLE_MERCHANT", "ROLE_ADMIN"],
+          "description": "Access role"
+        },
+        "clusterLocation": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Regional retail hub location"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last update"
+        }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "UserPrivateInfo": {
+      "title": "UserPrivateInfo",
+      "description": "Isolated PII and business registration data",
+      "type": "object",
+      "properties": {
+        "phone": {
+          "type": "string",
+          "maxLength": 20,
+          "description": "Contact phone number"
+        },
+        "gstNumber": {
+          "type": "string",
+          "maxLength": 25,
+          "description": "Tax GSTIN identification"
+        },
+        "streetAddress": {
+          "type": "string",
+          "maxLength": 250,
+          "description": "Physical shop delivery address"
+        }
+      }
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Catalog item eligible for bulk buying pool syndication",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique product ID" },
+        "tenantId": { "type": "string", "description": "Tenant ID" },
+        "sku": { "type": "string", "maxLength": 50, "description": "SKU identifier" },
+        "title": { "type": "string", "maxLength": 150, "description": "Product display title" },
+        "category": { "type": "string", "maxLength": 50, "description": "Catalog category" },
+        "unit": { "type": "string", "maxLength": 20, "description": "Packaging unit" },
+        "basePrice": { "type": "number", "description": "Standard retail baseline price" },
+        "status": { "type": "string", "enum": ["ACTIVE", "ARCHIVED"], "description": "Product active state" }
+      },
+      "required": ["id", "sku", "title", "basePrice", "status"]
+    },
+    "BuyingPool": {
+      "title": "BuyingPool",
+      "description": "Aggregated volume procurement pool with dynamic pricing tiers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Pool unique ID" },
+        "tenantId": { "type": "string", "description": "Tenant ID" },
+        "productId": { "type": "string", "description": "Referenced catalog product ID" },
+        "productTitle": { "type": "string", "maxLength": 150, "description": "Product name" },
+        "title": { "type": "string", "maxLength": 150, "description": "Pool cluster title" },
+        "status": {
+          "type": "string",
+          "enum": ["OPEN", "FROZEN", "LOCKED", "EXECUTED", "CANCELLED"],
+          "description": "Lifecycle status of buying pool"
+        },
+        "currentQuantity": { "type": "number", "description": "Total committed units" },
+        "targetMoq": { "type": "number", "description": "Minimum order quantity to trigger pool" },
+        "maxCapacity": { "type": "number", "description": "Upper volumetric ceiling" },
+        "currentUnlockedPrice": { "type": "number", "description": "Active discounted tier price" },
+        "cutoffTime": { "type": "string", "description": "Commitment closure deadline" }
+      },
+      "required": ["id", "productId", "title", "status", "currentQuantity", "targetMoq"]
+    },
+    "PoolCommitment": {
+      "title": "PoolCommitment",
+      "description": "Merchant volumetric participation commitment in a pool",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Commitment unique ID" },
+        "poolId": { "type": "string", "description": "Parent buying pool ID" },
+        "userId": { "type": "string", "description": "Merchant UID" },
+        "merchantName": { "type": "string", "maxLength": 100, "description": "Merchant display title" },
+        "quantity": { "type": "number", "description": "Quantity committed" },
+        "maxBudget": { "type": "number", "description": "Escrow authorization ceiling" },
+        "escrowStatus": {
+          "type": "string",
+          "enum": ["HELD", "RELEASED", "REFUNDED"],
+          "description": "Wallet escrow hold status"
+        },
+        "createdAt": { "type": "string", "description": "ISO timestamp" }
+      },
+      "required": ["id", "poolId", "userId", "quantity", "escrowStatus"]
+    },
+    "Wallet": {
+      "title": "Wallet",
+      "description": "Merchant double-entry ledger balance container",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Merchant UID" },
+        "availableBalance": { "type": "number", "description": "Liquid usable funds" },
+        "escrowBalance": { "type": "number", "description": "Funds earmarked for active pool commitments" },
+        "currency": { "type": "string", "maxLength": 5, "description": "Currency code" },
+        "updatedAt": { "type": "string", "description": "Timestamp of ledger reconciliation" }
+      },
+      "required": ["userId", "availableBalance", "escrowBalance"]
+    },
+    "SubInvoice": {
+      "title": "SubInvoice",
+      "description": "Fulfillment delivery order with electronic Proof-of-Delivery OTP",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Sub-invoice tracking ID" },
+        "poolId": { "type": "string", "description": "Source pool ID" },
+        "merchantId": { "type": "string", "description": "Merchant UID" },
+        "quantity": { "type": "number", "description": "Units allocated for drop-off" },
+        "totalAmount": { "type": "number", "description": "Final billed total" },
+        "status": {
+          "type": "string",
+          "enum": ["PENDING", "DISPATCHED", "DELIVERED", "VERIFIED"],
+          "description": "Fulfillment progression"
+        },
+        "epodOtp": {
+          "type": "string",
+          "maxLength": 6,
+          "description": "6-digit confidential delivery handshake OTP"
+        }
+      },
+      "required": ["id", "poolId", "merchantId", "quantity", "totalAmount", "status"]
+    },
+    "MarketSearchReport": {
+      "title": "MarketSearchReport",
+      "description": "Commodity wholesale price insights grounded via Google Search",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Report ID" },
+        "commodity": { "type": "string", "maxLength": 100, "description": "Searched commodity" },
+        "marketSummary": { "type": "string", "description": "Synthesized market pulse summary" },
+        "sourcesCount": { "type": "number", "description": "Number of grounded citations" },
+        "queriedAt": { "type": "string", "description": "Timestamp of grounding inquiry" }
+      },
+      "required": ["id", "commodity", "marketSummary"]
+    },
+    "SupplierLocation": {
+      "title": "SupplierLocation",
+      "description": "Wholesale hub or mandi grounded via Google Maps",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Place entity ID" },
+        "title": { "type": "string", "maxLength": 150, "description": "Supplier or Mandi title" },
+        "mapsUri": { "type": "string", "description": "Google Maps link" },
+        "category": { "type": "string", "maxLength": 100, "description": "Facility category" },
+        "region": { "type": "string", "maxLength": 100, "description": "District or zone" }
+      },
+      "required": ["id", "title", "mapsUri"]
+    }
+  },
+  "firestore": {
+    "/admins/{adminId}": {
+      "schema": "Admin",
+      "description": "System admin authorization registry"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Registered merchant and operator user profiles"
+    },
+    "/users/{userId}/private/info": {
+      "schema": "UserPrivateInfo",
+      "description": "Isolated private business and contact PII"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Procurement catalog products"
+    },
+    "/pools/{poolId}": {
+      "schema": "BuyingPool",
+      "description": "Wholesale bulk buying pools"
+    },
+    "/pools/{poolId}/commitments/{commitmentId}": {
+      "schema": "PoolCommitment",
+      "description": "Merchant commitments inside a buying pool"
+    },
+    "/wallets/{userId}": {
+      "schema": "Wallet",
+      "description": "Merchant digital credit and escrow wallets"
+    },
+    "/invoices/{invoiceId}": {
+      "schema": "SubInvoice",
+      "description": "Merchant sub-invoices with e-POD delivery verification"
+    },
+    "/market_searches/{searchId}": {
+      "schema": "MarketSearchReport",
+      "description": "Google Search grounded mandi commodity insights"
+    },
+    "/supplier_locations/{locId}": {
+      "schema": "SupplierLocation",
+      "description": "Google Maps grounded wholesale distributors and APMC depots"
+    }
+  }
+}

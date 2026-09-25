@@ -1,0 +1,218 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Deny-All Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'google.com');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email in ['rehankhan0214e@gmail.com', 'ops@tradepulse.io'] && request.auth.token.email_verified == true)
+      );
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // --- Entity Validators ---
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+        data.keys().hasOnly(['uid', 'email', 'displayName', 'businessName', 'role', 'clusterLocation', 'updatedAt']) &&
+        data.uid is string && data.uid == request.auth.uid &&
+        data.email is string && data.email.size() <= 150 &&
+        data.role in ['ROLE_MERCHANT', 'ROLE_ADMIN'] &&
+        (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
+        (!('businessName' in data) || (data.businessName is string && data.businessName.size() <= 120)) &&
+        (!('clusterLocation' in data) || (data.clusterLocation is string && data.clusterLocation.size() <= 100));
+    }
+
+    function isValidUserPrivate(data) {
+      return data.keys().hasOnly(['phone', 'gstNumber', 'streetAddress']) &&
+        (!('phone' in data) || (data.phone is string && data.phone.size() <= 20)) &&
+        (!('gstNumber' in data) || (data.gstNumber is string && data.gstNumber.size() <= 25)) &&
+        (!('streetAddress' in data) || (data.streetAddress is string && data.streetAddress.size() <= 250));
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['id', 'sku', 'title', 'basePrice', 'status']) &&
+        data.keys().hasOnly(['id', 'tenantId', 'sku', 'title', 'category', 'unit', 'basePrice', 'status', 'createdAt', 'updatedAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.sku is string && data.sku.size() <= 50 &&
+        data.title is string && data.title.size() <= 150 &&
+        data.basePrice is number && data.basePrice >= 0 &&
+        data.status in ['ACTIVE', 'ARCHIVED'];
+    }
+
+    function isValidBuyingPool(data) {
+      return data.keys().hasAll(['id', 'productId', 'title', 'status', 'currentQuantity', 'targetMoq']) &&
+        data.keys().hasOnly(['id', 'tenantId', 'productId', 'productTitle', 'productSku', 'title', 'status', 'currentQuantity', 'targetMoq', 'maxCapacity', 'currentUnlockedPrice', 'startTime', 'cutoffTime', 'freezeTime', 'createdAt', 'updatedAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.productId is string && data.productId.size() <= 128 &&
+        data.title is string && data.title.size() <= 150 &&
+        data.status in ['OPEN', 'FROZEN', 'LOCKED', 'EXECUTED', 'CANCELLED'] &&
+        data.currentQuantity is number && data.currentQuantity >= 0 &&
+        data.targetMoq is number && data.targetMoq > 0;
+    }
+
+    function isValidPoolCommitment(data) {
+      return data.keys().hasAll(['id', 'poolId', 'userId', 'quantity', 'escrowStatus']) &&
+        data.keys().hasOnly(['id', 'poolId', 'userId', 'merchantName', 'quantity', 'maxBudget', 'escrowStatus', 'createdAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.poolId is string && data.poolId.size() <= 128 &&
+        data.userId is string && data.userId == request.auth.uid &&
+        data.quantity is number && data.quantity > 0 &&
+        data.escrowStatus in ['HELD', 'RELEASED', 'REFUNDED'];
+    }
+
+    function isValidSubInvoice(data) {
+      return data.keys().hasAll(['id', 'poolId', 'merchantId', 'quantity', 'totalAmount', 'status']) &&
+        data.keys().hasOnly(['id', 'poolId', 'merchantId', 'merchantName', 'quantity', 'totalAmount', 'status', 'epodOtp', 'dispatchedAt', 'deliveredAt', 'verifiedAt', 'createdAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.poolId is string && data.poolId.size() <= 128 &&
+        data.merchantId is string && data.merchantId.size() <= 128 &&
+        data.quantity is number && data.quantity > 0 &&
+        data.totalAmount is number && data.totalAmount >= 0 &&
+        data.status in ['PENDING', 'DISPATCHED', 'DELIVERED', 'VERIFIED'] &&
+        (!('epodOtp' in data) || (data.epodOtp is string && data.epodOtp.size() <= 6));
+    }
+
+    function isValidMarketSearch(data) {
+      return data.keys().hasAll(['id', 'commodity', 'marketSummary']) &&
+        data.keys().hasOnly(['id', 'commodity', 'marketSummary', 'sourcesCount', 'citations', 'queriedAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.commodity is string && data.commodity.size() <= 100 &&
+        data.marketSummary is string && data.marketSummary.size() <= 10000;
+    }
+
+    function isValidSupplierLocation(data) {
+      return data.keys().hasAll(['id', 'title', 'mapsUri']) &&
+        data.keys().hasOnly(['id', 'title', 'mapsUri', 'category', 'region', 'address', 'rating', 'queriedAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.title is string && data.title.size() <= 150 &&
+        data.mapsUri is string && data.mapsUri.size() <= 500;
+    }
+
+    // --- Collection Security Rules ---
+
+    // Admin Registry
+    match /admins/{adminId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // User Profiles
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidUserProfile(incoming()) && incoming().role == 'ROLE_MERCHANT';
+      allow update: if isVerifiedUser() && (
+        (isOwner(userId) && isValidUserProfile(incoming()) && incoming().role == existing().role && incoming().uid == existing().uid) ||
+        (isAdmin() && isValidUserProfile(incoming()))
+      );
+      allow delete: if isAdmin();
+
+      // Isolated PII Sub-collection
+      match /private/info {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if (isOwner(userId) || isAdmin()) && isValidUserPrivate(incoming());
+      }
+    }
+
+    // Products Catalog
+    match /products/{productId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
+      allow update: if isAdmin() && isValidId(productId) && isValidProduct(incoming()) && incoming().id == existing().id;
+      allow delete: if isAdmin();
+    }
+
+    // Buying Pools
+    match /pools/{poolId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && isValidId(poolId) && isValidBuyingPool(incoming());
+      allow update: if isValidId(poolId) && (
+        (isAdmin() && isValidBuyingPool(incoming()) && incoming().id == existing().id) ||
+        // Merchant volumetric progression when joining pool
+        (
+          isVerifiedUser() &&
+          existing().status == 'OPEN' &&
+          isValidBuyingPool(incoming()) &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['currentQuantity', 'currentUnlockedPrice', 'updatedAt'])
+        )
+      );
+      allow delete: if isAdmin();
+
+      // Buying Pool Commitments Sub-collection
+      match /commitments/{commitmentId} {
+        allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+        allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+        allow create: if isVerifiedUser() &&
+          isValidId(commitmentId) &&
+          isValidPoolCommitment(incoming()) &&
+          incoming().userId == request.auth.uid &&
+          get(/databases/$(database)/documents/pools/$(poolId)).data.status == 'OPEN';
+        allow update: if isVerifiedUser() &&
+          isValidId(commitmentId) &&
+          isValidPoolCommitment(incoming()) &&
+          incoming().userId == existing().userId &&
+          (isAdmin() || (isOwner(existing().userId) && incoming().diff(existing()).affectedKeys().hasOnly(['quantity', 'maxBudget'])));
+        allow delete: if isAdmin();
+      }
+    }
+
+    // Merchant Wallets
+    match /wallets/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if (isOwner(userId) || isAdmin()) && isValidId(userId);
+      allow update: if (isOwner(userId) || isAdmin()) && isValidId(userId);
+      allow delete: if isAdmin();
+    }
+
+    // Invoices & e-POD Deliveries
+    match /invoices/{invoiceId} {
+      allow get: if isSignedIn() && (resource.data.merchantId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.merchantId == request.auth.uid || isAdmin());
+      allow create: if isAdmin() && isValidId(invoiceId) && isValidSubInvoice(incoming());
+      allow update: if isAdmin() && isValidId(invoiceId) && isValidSubInvoice(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // Google Search Grounded Market Reports Cache
+    match /market_searches/{searchId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidId(searchId) && isValidMarketSearch(incoming());
+    }
+
+    // Google Maps Grounded Supplier Hubs
+    match /supplier_locations/{locId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidId(locId) && isValidSupplierLocation(incoming());
+    }
+  }
+}

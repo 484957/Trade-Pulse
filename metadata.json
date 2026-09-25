@@ -1,0 +1,10 @@
+{
+  "name": "TradePulse",
+  "description": "Enterprise Multi-Tenant Group-Buying Aggregator for procurement demand across regional merchant clusters with Firebase data persistence, Google Search commodity intelligence, and Google Maps wholesale supplier discovery",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
